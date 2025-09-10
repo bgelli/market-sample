@@ -31,6 +31,18 @@ export interface ProductUpdate {
   stock?: number;
 }
 
+export interface CartItem {
+  id: number;
+  product_id: number;
+  quantity: number;
+  product: Product;
+}
+
+export interface CartItemCreate {
+  product_id: number;
+  quantity?: number;
+}
+
 export const productApi = {
   // Get all products
   getProducts: async (): Promise<Product[]> => {
@@ -59,5 +71,29 @@ export const productApi = {
   // Delete product
   deleteProduct: async (id: number): Promise<void> => {
     await api.delete(`/products/${id}`);
+  },
+};
+
+export const cartApi = {
+  // Get all cart items
+  getCart: async (): Promise<CartItem[]> => {
+    const response = await api.get('/cart');
+    return response.data;
+  },
+
+  // Add product to cart
+  addToCart: async (cartItem: CartItemCreate): Promise<CartItem> => {
+    const response = await api.post('/cart', cartItem);
+    return response.data;
+  },
+
+  // Remove item from cart
+  removeFromCart: async (cartItemId: number): Promise<void> => {
+    await api.delete(`/cart/${cartItemId}`);
+  },
+
+  // Clear entire cart
+  clearCart: async (): Promise<void> => {
+    await api.delete('/cart');
   },
 };
