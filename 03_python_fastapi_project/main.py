@@ -146,15 +146,14 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
 async def get_cart(db: AsyncSession = Depends(get_db)):
     """Get all items in cart"""
     result = await db.execute(
-        select(CartItem).join(Product).order_by(CartItem.created_at.desc())
+        select(CartItem).order_by(CartItem.created_at.desc())
     )
     cart_items = result.scalars().all()
     
-    # Load the product relationship manually if needed
+    # Load the product relationship manually
     for item in cart_items:
-        if not item.product:
-            product_result = await db.execute(select(Product).filter(Product.id == item.product_id))
-            item.product = product_result.scalar_one()
+        product_result = await db.execute(select(Product).filter(Product.id == item.product_id))
+        item.product = product_result.scalar_one()
     
     return cart_items
 
@@ -188,7 +187,7 @@ async def add_to_cart(cart_item: CartItemCreate, db: AsyncSession = Depends(get_
         await db.commit()
         await db.refresh(existing_item)
         
-        # Load product relationship
+        # Load product relationship manually
         product_result = await db.execute(select(Product).filter(Product.id == existing_item.product_id))
         existing_item.product = product_result.scalar_one()
         
@@ -203,8 +202,9 @@ async def add_to_cart(cart_item: CartItemCreate, db: AsyncSession = Depends(get_
         await db.commit()
         await db.refresh(db_cart_item)
         
-        # Load product relationship
-        db_cart_item.product = product
+        # Load product relationship manually
+        product_result = await db.execute(select(Product).filter(Product.id == db_cart_item.product_id))
+        db_cart_item.product = product_result.scalar_one()
         
         return db_cart_item
 
