@@ -1,0 +1,95 @@
+.layout {
+  min-height: 100vh;
+  background: #f0f2f5;
+}
+
+.header {
+  background: #001529;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-icon {
+  font-size: 32px;
+  color: #1890ff;
+}
+
+.header-title {
+  color: white !important;
+  margin: 0 !important;
+  font-weight: 600;
+}
+
+.content {
+  padding: 24px;
+}
+
+.content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding: 24px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.page-header h3 {
+  margin-bottom: 8px;
+  color: #001529;
+}
+
+.page-header p {
+  color: #666;
+  margin: 0;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.ant-modal-header .ant-modal-title {
+  font-weight: 600;
+  color: #001529;
+}
+
+.ant-descriptions-item-label {
+  font-weight: 600;
+}
+
+.ant-btn-primary {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.ant-btn-primary:hover {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+  
+  .content {
+    padding: 16px;
+  }
+}
