@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from database import Product, create_tables, get_db
+from database import Product, CartItem, create_tables, get_db
 
 
 class ProductDTO(BaseModel):
@@ -34,6 +34,21 @@ class ProductUpdate(BaseModel):
     price: float | None = None
     description: str | None = None
     stock: int | None = None
+
+
+class CartItemDTO(BaseModel):
+    id: int
+    product_id: int
+    quantity: int
+    product: ProductDTO
+
+    class Config:
+        from_attributes = True
+
+
+class CartItemCreate(BaseModel):
+    product_id: int
+    quantity: int = 1
 
 
 @asynccontextmanager
@@ -124,6 +139,101 @@ async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(db_product)
     await db.commit()
     return {"message": "Product deleted successfully"}
+
+
+# Cart endpoints
+@app.get("/cart", response_model=List[CartItemDTO])
+async def get_cart(db: AsyncSession = Depends(get_db)):
+    """Get all items in cart"""
+    result = await db.execute(
+        select(CartItem).join(Product).order_by(CartItem.created_at.desc())
+    )
+    cart_items = result.scalars().all()
+    
+    # Load the product relationship manually if needed
+    for item in cart_items:
+        if not item.product:
+            product_result = await db.execute(select(Product).filter(Product.id == item.product_id))
+            item.product = product_result.scalar_one()
+    
+    return cart_items
+
+
+@app.post("/cart", response_model=CartItemDTO, status_code=201)
+async def add_to_cart(cart_item: CartItemCreate, db: AsyncSession = Depends(get_db)):
+    """Add a product to cart"""
+    # Check if product exists and has sufficient stock
+    product_result = await db.execute(select(Product).filter(Product.id == cart_item.product_id))
+    product = product_result.scalar_one_or_none()
+    
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if product.stock < cart_item.quantity:
+        raise HTTPException(status_code=400, detail="Insufficient stock")
+    
+    # Check if item already exists in cart
+    existing_item_result = await db.execute(
+        select(CartItem).filter(CartItem.product_id == cart_item.product_id)
+    )
+    existing_item = existing_item_result.scalar_one_or_none()
+    
+    if existing_item:
+        # Update quantity
+        total_quantity = existing_item.quantity + cart_item.quantity
+        if product.stock < total_quantity:
+            raise HTTPException(status_code=400, detail="Insufficient stock")
+        
+        existing_item.quantity = total_quantity
+        await db.commit()
+        await db.refresh(existing_item)
+        
+        # Load product relationship
+        product_result = await db.execute(select(Product).filter(Product.id == existing_item.product_id))
+        existing_item.product = product_result.scalar_one()
+        
+        return existing_item
+    else:
+        # Create new cart item
+        db_cart_item = CartItem(
+            product_id=cart_item.product_id,
+            quantity=cart_item.quantity
+        )
+        db.add(db_cart_item)
+        await db.commit()
+        await db.refresh(db_cart_item)
+        
+        # Load product relationship
+        db_cart_item.product = product
+        
+        return db_cart_item
+
+
+@app.delete("/cart/{cart_item_id}")
+async def remove_from_cart(cart_item_id: int, db: AsyncSession = Depends(get_db)):
+    """Remove item from cart"""
+    result = await db.execute(select(CartItem).filter(CartItem.id == cart_item_id))
+    cart_item = result.scalar_one_or_none()
+    
+    if cart_item is None:
+        raise HTTPException(status_code=404, detail="Cart item not found")
+    
+    await db.delete(cart_item)
+    await db.commit()
+    return {"message": "Item removed from cart"}
+
+
+@app.delete("/cart")
+async def clear_cart(db: AsyncSession = Depends(get_db)):
+    """Clear all items from cart"""
+    result = await db.execute(select(CartItem))
+    cart_items = result.scalars().all()
+    
+    for item in cart_items:
+        await db.delete(item)
+    
+    await db.commit()
+    return {"message": "Cart cleared"}
 
 
 if __name__ == "__main__":

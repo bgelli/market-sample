@@ -14,6 +14,7 @@ import {
   Card,
   Descriptions,
   Tag,
+  List,
 } from 'antd';
 import {
   PlusOutlined,
@@ -21,9 +22,11 @@ import {
   DeleteOutlined,
   EyeOutlined,
   ShoppingOutlined,
+  ShoppingCartOutlined,
+  ClearOutlined,
 } from '@ant-design/icons';
-import type { Product, ProductCreate } from './services/api';
-import { productApi } from './services/api';
+import type { Product, ProductCreate, CartItem } from './services/api';
+import { productApi, cartApi } from './services/api';
 import './App.css';
 
 const { Header, Content } = Layout;
@@ -31,6 +34,7 @@ const { Title } = Typography;
 
 const App: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -38,10 +42,20 @@ const App: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [form] = Form.useForm();
 
-  // Load products on component mount
+  // Load products and cart on component mount
   useEffect(() => {
     loadProducts();
+    loadCart();
   }, []);
+
+  const loadCart = async () => {
+    try {
+      const cartData = await cartApi.getCart();
+      setCart(cartData);
+    } catch (error) {
+      console.error('Failed to load cart:', error);
+    }
+  };
 
   const loadProducts = async () => {
     setLoading(true);
@@ -104,6 +118,37 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAddToCart = async (productId: number) => {
+    try {
+      await cartApi.addToCart({ product_id: productId, quantity: 1 });
+      message.success('Product added to cart');
+      loadCart();
+      loadProducts(); // Reload to update stock if needed
+    } catch (error) {
+      message.error('Failed to add product to cart');
+    }
+  };
+
+  const handleRemoveFromCart = async (cartItemId: number) => {
+    try {
+      await cartApi.removeFromCart(cartItemId);
+      message.success('Item removed from cart');
+      loadCart();
+    } catch (error) {
+      message.error('Failed to remove item from cart');
+    }
+  };
+
+  const handleClearCart = async () => {
+    try {
+      await cartApi.clearCart();
+      message.success('Cart cleared');
+      loadCart();
+    } catch (error) {
+      message.error('Failed to clear cart');
+    }
+  };
+
   const columns = [
     {
       title: 'ID',
@@ -147,6 +192,14 @@ const App: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Product) => (
         <Space size="middle">
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => handleAddToCart(record.id)}
+            title="Add to Cart"
+            disabled={record.stock === 0}
+            size="small"
+          />
           <Button
             type="link"
             icon={<EyeOutlined />}
@@ -216,6 +269,70 @@ const App: React.FC = () => {
               }}
             />
           </Card>
+
+          {/* Shopping Cart - Fixed position bottom left */}
+          <div className="shopping-cart">
+            <Card 
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>
+                    <ShoppingCartOutlined /> Shopping Cart ({cart.length})
+                  </span>
+                  {cart.length > 0 && (
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<ClearOutlined />}
+                      onClick={handleClearCart}
+                      title="Clear Cart"
+                    />
+                  )}
+                </div>
+              }
+              size="small"
+              style={{ width: 300, maxHeight: 400, overflow: 'auto' }}
+            >
+              {cart.length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#999' }}>Cart is empty</p>
+              ) : (
+                <List
+                  size="small"
+                  dataSource={cart}
+                  renderItem={(item) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          type="link"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleRemoveFromCart(item.id)}
+                          title="Remove from cart"
+                        />
+                      ]}
+                    >
+                      <List.Item.Meta
+                        title={item.product.name}
+                        description={
+                          <div>
+                            <div>Quantity: {item.quantity}</div>
+                            <div>${(item.product.price * item.quantity).toFixed(2)}</div>
+                          </div>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              )}
+              {cart.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+                  <strong>
+                    Total: ${cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0).toFixed(2)}
+                  </strong>
+                </div>
+              )}
+            </Card>
+          </div>
 
           {/* Create/Edit Modal */}
           <Modal
